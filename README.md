@@ -2,7 +2,7 @@
 
 Most flexible Linux sandbox for diverse AI tests (integrations, agentic infra, benchmarks, evals) is ...
 
-**Site:** https://inside.cottonbox.cc
+**Site:** [inside.cottonbox.cc](https://inside.cottonbox.cc)
 
 ## Sandbox labs
 
