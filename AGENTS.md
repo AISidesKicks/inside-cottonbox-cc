@@ -20,6 +20,20 @@ Keep all info as very simple HTML or md pages.
 - Never mention or speculate about why wording was corrected; present the merit of the change.
 - Example commit: `docs(readme): improve clarity of sandbox setup steps`.
 
+## CTNB python environment (isolated with pixi `cmod`)
+
+We are running inside "pixi shell" - check it before implementing plans in code.
+Before installing Python packages double-check "pixi info | grep Name" returns 'ctnb'
+Pixi Python env has a preinstalled set of tools — suggest set expansion, if needed.
+
+
+## For temporary work always use $SCRATCH and $TMPDIR
+
+- `$SCRATCH` — scratch disk dir for logs and artifacts that persist through crashes (`$PIXI_PROJECT_ROOT/scratch`, gitignored except `.gitkeep`)
+- `$TMPDIR` — tmpfs dir at `/run/user/$UID/pixi_tmp/$PIXI_PROJECT_NAME` (created by pixi `default` task)
+
+
+
 ## Commit conventions
 
 Auto-commit locally, so we can keep track, using these rules:
