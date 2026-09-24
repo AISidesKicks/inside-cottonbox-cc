@@ -15,3 +15,6 @@ SCRATCH = "$PIXI_PROJECT_ROOT/scratch"
 
 [dependencies]
 python = "3.12.*"
+
+[pypi-dependencies]
+microsandbox = ">=0.7.2, <0.8"
