@@ -78,6 +78,14 @@ img {
   border-top: 1px solid #ddd;
   margin: 32px 0;
 }
+.video-link {
+  text-align: center;
+  font-size: 14px;
+}
+.yt-logo {
+  vertical-align: -4px;
+  margin-right: 4px;
+}
 ul {
   margin: 12px 0;
   padding-left: 20px;
@@ -140,6 +148,29 @@ footer {
 </ul>
 
 <p><a href="https://github.com/AISidesKicks/inside-cottonbox-cc">Browse the labs on GitHub</a></p>
+
+<h2>Sandboxing in the frontier</h2>
+
+<p>Frontier labs like DeepSeek run a combination of sandboxes, and they run straight into a classical trilemma. Three properties matter at once:</p>
+
+<ul>
+<li><strong>Security</strong> - the strength of the isolation boundary. A shared host kernel is cheaper, an own kernel and a full operating system are stronger.</li>
+<li><strong>Starting speed</strong> - how fast a fresh sandbox becomes usable, because agent training and evaluation create them in bursts of tens of thousands, not one at a time.</li>
+<li><strong>New image versions</strong> - how cheaply an environment moves to the latest base image, workspace, or toolkit across a large and diverse image corpus.</li>
+</ul>
+
+<p>It is an open tension rather than a solved problem. Stronger isolation costs startup latency and memory, and the image corpus is too large and too rarely reused for node-local caches to absorb it, so the newest environment is often the one that has to be fetched. DeepSeek Elastic Compute answers it with a platform rather than a single runtime: FnCall, container, microVM, and full VM backends behind one SDK, environments composed from independently versioned layers, and image data loaded on demand from a cluster filesystem. At production scale that is around 160 nodes serving about 3 million sandboxes a day, with over 5,000 creations per second.</p>
+
+<img src="assets/images/4types-Dsec.png" alt="Table 1 from the DSec paper: typical workload fit across FnCall, Container, MicroVM and Full VM sandbox backends, comparing runtime performance, dependency footprint, isolation level, full OS functionality, resource overhead, and target scenarios" loading="lazy">
+
+<p>DeepSeek Elastic Compute (DSec): A Sandbox Infrastructure for Effective Agentic Training at Scale</p>
+<div class="video-frame">
+<iframe src="https://www.youtube.com/embed/Skfez3qvOgc" title="DeepSeek Elastic Compute (DSec): A Sandbox Infrastructure for Effective Agentic Training at Scale" loading="lazy" allowfullscreen></iframe>
+</div>
+
+<p class="video-link"><a href="https://www.youtube.com/watch?v=Skfez3qvOgc" title="Watch on YouTube"><svg class="yt-logo" viewBox="0 0 28 20" width="28" height="20" role="img" aria-label="YouTube"><path fill="#ff0000" d="M27.4 3.1A3.5 3.5 0 0 0 25 .6C22.8 0 14 0 14 0S5.2 0 3 .6A3.5 3.5 0 0 0 .6 3.1 36.6 36.6 0 0 0 0 10a36.6 36.6 0 0 0 .6 6.9A3.5 3.5 0 0 0 3 19.4c2.2.6 11 .6 11 .6s8.8 0 11-.6a3.5 3.5 0 0 0 2.4-2.5A36.6 36.6 0 0 0 28 10a36.6 36.6 0 0 0-.6-6.9z"/><path fill="#fff" d="M11.2 14.3 18.5 10l-7.3-4.3z"/></svg> Watch on YouTube</a></p>
+
+<p>Paper: <a href="https://arxiv.org/abs/2609.22978">DeepSeek Elastic Compute (DSec): A Sandbox Infrastructure for Effective Agentic Training at Scale</a></p>
 
 <h2>Appendix</h2>
 
