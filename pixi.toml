@@ -10,6 +10,7 @@ version = "0.1.0"
 [activation.env]
 TMPDIR = "/run/user/$UID/pixi_tmp/$PIXI_PROJECT_NAME"
 SCRATCH = "$PIXI_PROJECT_ROOT/scratch"
+CARGO_TARGET_DIR = "$PIXI_PROJECT_ROOT/scratch/cargo-target"
 
 [tasks]
 
