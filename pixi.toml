@@ -13,6 +13,9 @@ SCRATCH = "$PIXI_PROJECT_ROOT/scratch"
 CARGO_TARGET_DIR = "$PIXI_PROJECT_ROOT/scratch/cargo-target"
 
 [tasks]
+nanvix-fetch = "scripts/nanvix-fetch.sh"
+nanvix = { cmd = "scripts/nanvix-run.sh", depends-on = ["nanvix-fetch"] }
+nanvix-shell = { cmd = "scripts/nanvix-run.sh --shell", depends-on = ["nanvix-fetch"] }
 
 [dependencies]
 python = "3.12.*"
