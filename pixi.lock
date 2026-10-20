@@ -38,7 +38,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_7.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.7.22-hbd8a1cb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tzdata-2026c-h151e31d_0.conda
-      - pypi: https://files.pythonhosted.org/packages/6a/45/cda5de640d411377e15ef1b1e1fe60959b1da071f67ca31b835c72d38332/microsandbox-0.7.2-cp310-abi3-manylinux_2_28_x86_64.whl
+      - pypi: https://files.pythonhosted.org/packages/93/47/54b66fc7b5fdbb510a55a5ed7f095413e645374f22246095caa2a9790048/microsandbox-0.7.8-cp310-abi3-manylinux_2_28_x86_64.whl
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda
   build_number: 20
@@ -395,8 +395,8 @@ packages:
   run_exports: {}
   size: 118849
   timestamp: 1784250406640
-- pypi: https://files.pythonhosted.org/packages/6a/45/cda5de640d411377e15ef1b1e1fe60959b1da071f67ca31b835c72d38332/microsandbox-0.7.2-cp310-abi3-manylinux_2_28_x86_64.whl
+- pypi: https://files.pythonhosted.org/packages/93/47/54b66fc7b5fdbb510a55a5ed7f095413e645374f22246095caa2a9790048/microsandbox-0.7.8-cp310-abi3-manylinux_2_28_x86_64.whl
   name: microsandbox
-  version: 0.7.2
-  sha256: 65cb41b95c33e0fc15cc76cf638b3fa864c1dbe5422a75dca214d23b9e53a17d
+  version: 0.7.8
+  sha256: b7a34876693785a664c864b1920bf413d78f3503a74ca39ea06a551c42fa5b62
   requires_python: '>=3.10'
