@@ -17,3 +17,5 @@ Four hands-on labs, three sandboxing approaches. Each follows the same shape: wh
 3. **A policy layer over the engines** - one set of rules, written once, that any engine can enforce.
    - **MXC** (Microsoft eXecution Container) - a higher wrapper framework that drives an engine behind one policy model, so the same filesystem, network, and UI rules work whether the host offers bubblewrap, LXC, a microVM, or hyperlight. [MXC lab](labs/mxc.md)
 
+The labs run out of a pixi environment, one manifest and one lockfile for the Python, Rust, and slirp4netns the labs need. [Why pixi](PIXI.md).
+
