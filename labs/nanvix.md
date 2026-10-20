@@ -115,7 +115,39 @@ The release also ships a `nanvix.lock` and a `sdk-provenance.json`, and the scri
 
 That is a supply chain trail from the tarball you run back to the Nanvix commit and the Clang 22.1.8 toolchain image it was built with. Compare that with "pip install something" and think about which one you would want running model output.
 
-Where the bundle lands matters. `$SCRATCH` is a directory on disk, not the tmpfs, because the extracted bundle is about 350 MB and `$TMPDIR` here is a 3 GB tmpfs. Scratch is disposable: delete it and the next fetch re-downloads and re-verifies.
+Where the bundle lands matters. `$SCRATCH` is a directory on disk, not the tmpfs, because the extracted bundle is about 560 MB and `$TMPDIR` here is a 3 GB tmpfs. Scratch is disposable: delete it and the next fetch re-downloads and re-verifies.
+
+### Why not the upstream script
+
+The [nanvix-python repo](https://github.com/nanvix/nanvix-python) ships its own downloader, `scripts/get-nanvix-python.sh`, and its own quick start:
+
+```sh
+gh release download --repo nanvix/nanvix-python --pattern "*.tar.gz" --clobber
+tar -xzf microvm-standalone-256mb.tar.gz
+cd microvm-standalone-256mb
+./bin/nanvixd.elf -ramfs nanvix_rootfs.img -mount ./mnt -- python3.initrd
+```
+
+That is the supported path and it works. This lab uses its own fetch script for one reason: the upstream one resolves the **latest** release through the GitHub API and verifies **no digest**, so "run this twice" does not give you the same bytes. Ours pins the tag and the sha256 of all three published assets, which is what you want when the thing being run is model output.
+
+The repo can also build the runtime from source, through the `./z` wrapper:
+
+```sh
+git clone --recurse-submodules https://github.com/nanvix/nanvix-python.git
+cd nanvix-python
+./z setup     # fetch the runtime-only sysroot and the SDK-built CPython
+./z build     # install the pure Python packages, generate the ramfs
+./z release   # package the standalone bundle into dist/
+```
+
+Its prerequisites are Python 3.12 on the host, Docker for the SDK-hosted bytecode generation, and KVM. Notably **no root**: unlike the core `nanvix/nanvix` repo, which builds a kernel and a system toolchain and does need sudo, this one only assembles a Python distribution. `./z` bootstraps `nanvix-zutil` into a private virtualenv if it is not already on PATH, and it uses a global install when the version matches the pin in `.zutils-version`. Since `nanvix-zutil` is published as a GitHub wheel rather than on PyPI or conda-forge, a pixi environment can still take it with a direct URL:
+
+```toml
+[pypi-dependencies]
+nanvix-zutil = { url = "https://github.com/nanvix/zutils/releases/download/v0.24.0/nanvix_zutil-0.24.0-py3-none-any.whl" }
+```
+
+The build also wants `pip` in the environment that runs it, because the package install step shells out to `python -m pip install --target=...` for the pure Python packages.
 
 ## Lab 2: boot the guest
 
@@ -500,16 +532,17 @@ The interesting row is also the fourth. Nanvix's network default is "the syscall
 9. **Only one guest at a time in standalone mode.** A second `NEW` over HTTP is refused while one is running.
 10. **The HTTP identifier is a tagged object.** `{"user_vm_id":{"value":1}}`, not `{"user_vm_id":1}`.
 11. **The bundle is about 560 MB extracted and 130 MB compressed.** It belongs on disk, not in a tmpfs.
-12. **Building from source needs root.** The upstream `./z setup` path installs a toolchain and needs sudo, and the build is long. The release artifact is the supported path.
+12. **Building from source does not need root, but it does need Docker and pip.** The `nanvix-python` build pulls the SDK toolchain image and shells out to `python -m pip install` for the pure Python packages, so the environment running `./z` needs pip. It is the core `nanvix` repo, which builds a kernel and a system toolchain, that needs sudo.
 13. **Upstream CI is the reference for portability.** Their bundle targets Ubuntu 24.04; this run was on Ubuntu 26.04 with kernel 7.0.0-38-generic and worked, but a kernel change can break a microVM boot in ways a namespace sandbox cannot.
-14. **No conda-forge package, no PyPI package.** Nothing to add to `pixi.toml`, and nothing for a host-side script to import. The `nanvixd` binary is the interface.
+14. **The runtime has no conda-forge or PyPI package.** Nothing to add to `pixi.toml` for the runtime itself, and nothing for a host-side script to import. The `nanvixd` binary is the interface. Only the build tooling is a package, and only as a GitHub wheel.
 
 ## Ecosystem
 
 | Resource | What it is |
 |---|---|
 | [nanvix/nanvix](https://github.com/nanvix/nanvix) | the microkernel, the macrokernel, and the host tooling |
-| [nanvix/nanvix-python](https://github.com/nanvix/nanvix-python) | the CPython 3.12 distribution this lab uses |
+| [nanvix/nanvix-python](https://github.com/nanvix/nanvix-python) | the CPython 3.12 distribution this lab uses, and the repo the bundle is released from |
+| [the upstream downloader](https://github.com/nanvix/nanvix-python/blob/main/scripts/get-nanvix-python.sh) | the supported "grab the latest release" script, and what this lab's fetch script deviates from |
 | [the paper](https://arxiv.org/abs/2604.11669) | the multikernel design and the density numbers |
 | [running Nanvix on Linux](https://github.com/nanvix/nanvix/blob/dev/doc/run-linux.md) | the `nanvixd` flags, the HTTP API, and the kernel arguments |
 | [the host mount design](https://github.com/nanvix/nanvix/blob/dev/doc/host-mount.md) | the hostfsd protocol, the path sandbox, and the supported operations |
