@@ -1,6 +1,6 @@
 # AI Sandbox Demo Lab: Docker Sandboxes
 
-A hands-on style guide to Docker Sandboxes, Docker's microVM sandbox for AI coding agents. It follows the same shape as [the bubblewrap lab](bubblewrap.md) and [the microsandbox lab](microsandbox.md), so you can compare the three side by side.
+A hands-on style guide to Docker Sandboxes, Docker's microVM sandbox for AI coding agents. It follows the same shape as [the bubblewrap lab](bubblewrap.md), [the microsandbox lab](microsandbox.md), and [the nanvix lab](nanvix.md), so you can compare the four side by side.
 
 > **Status of this page.** The policy, approval, and audit sections were verified live against `sbx` 0.48.0 on Ubuntu 26.04 with KVM, using the `shell` agent and real sandboxes. The workflow, templates, MCP, and editor sections are built from Docker's own documentation and are illustrative rather than transcripts.
 
@@ -19,24 +19,25 @@ The important design choice is the audience: this is not a generic sandbox build
 
 It runs on macOS (Sonoma 14+, Apple silicon), Windows 11 with Windows Hypervisor Platform, and Ubuntu 24.04+. There is also a cloud variant that runs the same sandboxes remotely.
 
-## How the three labs compare
+## How the four labs compare
 
-| | bubblewrap | microsandbox | Docker Sandboxes |
-|---|---|---|---|
-| Isolation | namespaces + seccomp, shared host kernel | microVM, own guest kernel | microVM, own guest kernel |
-| Interface | `bwrap` flags you assemble | SDK-first, `msb` CLI | `sbx` CLI, agent-first |
-| Docker inside | no | yes, by default | yes, private Engine per sandbox |
-| Network control | hand-built, via flags and seccomp | policy objects in the SDK | presets plus `sbx policy` rules |
-| Credentials | you keep them out by hand | secret substitution to allowed hosts | host proxy injects into outbound headers |
-| Workspace | bind mounts you choose | volumes you choose | direct mount, clone mode, or mountless |
-| Best at | slim, scriptable separation | embedding sandbox creation in code | running coding agents unattended |
-| Cost | free, DIY | free, DIY plus cloud option | CLI free, governance paid |
+| | bubblewrap | microsandbox | nanvix | Docker Sandboxes |
+|---|---|---|---|---|
+| Isolation | namespaces + seccomp, shared host kernel | microVM, own guest kernel | microVM, own guest kernel | microVM, own guest kernel |
+| Guest userland | the host's Linux | Linux | Nanvix, not Linux | Linux |
+| Interface | `bwrap` flags you assemble | SDK-first, `msb` CLI | the `nanvixd` binary | `sbx` CLI, agent-first |
+| Docker inside | no | yes, by default | no | yes, private Engine per sandbox |
+| Network control | hand-built, via flags and seccomp | policy objects in the SDK | syscalls blocked outright | presets plus `sbx policy` rules |
+| Credentials | you keep them out by hand | secret substitution to allowed hosts | you keep them out by hand | host proxy injects into outbound headers |
+| Workspace | bind mounts you choose | volumes you choose | live host mount, path sandboxed | direct mount, clone mode, or mountless |
+| Best at | slim, scriptable separation | embedding sandbox creation in code | a guest OS you control | running coding agents unattended |
+| Cost | free, DIY | free, DIY plus cloud option | free, but the workload needs porting | CLI free, governance paid |
 
-Roughly: reach for bubblewrap when you want to trim what one process can see, microsandbox when you want to boot machines from your own code, and Docker Sandboxes when you want to hand a coding agent a machine and walk away.
+Roughly: reach for bubblewrap when you want to trim what one process can see, microsandbox when you want to boot machines from your own code, nanvix when the workload needs a guest operating system that is not Linux, and Docker Sandboxes when you want to hand a coding agent a machine and walk away.
 
 ## The Vagrant parallel
 
-Docker Sandboxes is arguably the closest thing to "Vagrant for agents" among the three, because it owns the whole workflow: image, config, provisioning, and cleanup.
+Docker Sandboxes is arguably the closest thing to "Vagrant for agents" among the four, because it owns the whole workflow: image, config, provisioning, and cleanup.
 
 | Vagrant | Docker Sandboxes |
 |---|---|
@@ -565,7 +566,7 @@ The practical takeaway is the same as the other labs: the boundary is real, but 
 | [docker/sbx-releases](https://github.com/docker/sbx-releases) | release artifacts and manual install instructions |
 | [Comparing sandboxing approaches for AI agents](https://www.docker.com/blog/comparing-sandboxing-approaches-ai-agents/) | Docker's own comparison against containers and VMs |
 
-Related labs in this repo: [bubblewrap](bubblewrap.md) for the slim, hand-built boundary, and [microsandbox](microsandbox.md) for the SDK-first microVM runtime with live snapshots and branching.
+Related labs in this repo: [bubblewrap](bubblewrap.md) for the slim, hand-built boundary, [microsandbox](microsandbox.md) for the SDK-first microVM runtime with live snapshots and branching, and [nanvix](nanvix.md) for the microVM that brings its own operating system.
 
 ## Cleanup
 

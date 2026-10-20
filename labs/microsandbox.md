@@ -2,7 +2,7 @@
 
 A hands-on lab for running AI agents and untrusted code inside microsandbox, a local-first microVM runtime. It follows the same shape as the bubblewrap lab: start small, then add the pieces that make a sandbox usable for agents - resource limits, an egress allowlist, secrets, snapshots, and agent integrations.
 
-Everything here was verified on Linux with microsandbox 0.7.8, KVM enabled, and the runtime installed through the Python SDK. For the other two approaches see [the bubblewrap lab](bubblewrap.md) and [the Docker Sandboxes lab](dockersandboxes.md), including how each one blocks the network connections an agent should not make.
+Everything here was verified on Linux with microsandbox 0.7.8, KVM enabled, and the runtime installed through the Python SDK. For the other three approaches see [the bubblewrap lab](bubblewrap.md), [the nanvix lab](nanvix.md), and [the Docker Sandboxes lab](dockersandboxes.md), including how each one blocks the network connections an agent should not make.
 
 ## What microsandbox is
 

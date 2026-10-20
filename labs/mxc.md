@@ -1,8 +1,8 @@
 # AI Sandbox Demo Lab: MXC
 
-A hands-on lab for Microsoft eXtension Container (MXC), the layer that sits *above* the sandbox engines. The other labs in this series each teach you one engine: bubblewrap, microsandbox, Docker Sandboxes. MXC is the wrapper framework: one policy model, and it drives whichever engine the host happens to offer.
+A hands-on lab for Microsoft eXtension Container (MXC), the layer that sits *above* the sandbox engines. The other labs in this series each teach you one engine: bubblewrap, microsandbox, nanvix, Docker Sandboxes. MXC is the wrapper framework: one policy model, and it drives whichever engine the host happens to offer.
 
-Everything in the "Verified output" blocks was produced on this machine, on Linux, with the Rust SDK `mxc-sdk` 1.0.1, bubblewrap 0.11.1, and the `ctnb` pixi environment from this repo. The other three approaches have their own labs: [bubblewrap](bubblewrap.md), [microsandbox](microsandbox.md), and [Docker Sandboxes](dockersandboxes.md).
+Everything in the "Verified output" blocks was produced on this machine, on Linux, with the Rust SDK `mxc-sdk` 1.0.1, bubblewrap 0.11.1, and the `ctnb` pixi environment from this repo. The other four approaches have their own labs: [bubblewrap](bubblewrap.md), [microsandbox](microsandbox.md), [nanvix](nanvix.md), and [Docker Sandboxes](dockersandboxes.md).
 
 ## What MXC is
 
@@ -383,20 +383,20 @@ $ sh: 2: Cannot set tty process group (No such process)
 
 ## How MXC compares
 
-| | bubblewrap | microsandbox | Docker Sandboxes | MXC |
-|---|---|---|---|---|
-| Role | the engine | the engine | the managed service | the wrapper over engines |
-| Boundary | namespaces on the host kernel | own guest kernel | own guest kernel | whatever the host offers |
-| Isolation control | command-line flags | OCI image plus policy | workspace modes plus presets | one policy object, typed |
-| Start cost | milliseconds | tens to hundreds of milliseconds | seconds | milliseconds on bubblewrap, more on a VM backend |
-| Network control | you build the filter | domain and group rules | preset plus scope rules | CIDR rules, or a proxy for hostnames |
-| Languages | any | Python, TS, Rust, Go, Ruby | the `sbx` CLI | Rust, .NET, Node |
-| Bring your own image | paths you bind | OCI images | curated images | backend-specific |
-| Best at | the cheapest boundary | running untrusted code end to end | unattended agent fleets | one policy across hosts and engines |
+| | bubblewrap | microsandbox | nanvix | Docker Sandboxes | MXC |
+|---|---|---|---|---|---|
+| Role | the engine | the engine | the engine plus a new OS | the managed service | the wrapper over engines |
+| Boundary | namespaces on the host kernel | own guest kernel | own guest kernel, own OS | own guest kernel | whatever the host offers |
+| Isolation control | command-line flags | OCI image plus policy | mount plus path sandbox | workspace modes plus presets | one policy object, typed |
+| Start cost | milliseconds | tens to hundreds of milliseconds | 0.2 s cold boot | seconds | milliseconds on bubblewrap, more on a VM backend |
+| Network control | you build the filter | domain and group rules | syscalls blocked outright | preset plus scope rules | CIDR rules, or a proxy for hostnames |
+| Languages | any | Python, TS, Rust, Go, Ruby | CPython 3.12, pure Python packages | the `sbx` CLI | Rust, .NET, Node |
+| Bring your own image | paths you bind | OCI images | the release bundle | curated images | backend-specific |
+| Best at | the cheapest boundary | running untrusted code end to end | a guest OS you control | unattended agent fleets | one policy across hosts and engines |
 
 The practical reading: MXC is what you reach for when you do not want to write the bubblewrap command line yourself, when you want the same policy to work on a Linux CI box and a Windows workstation, or when you want to escalate from a namespace sandbox to a microVM without rewriting your policy.
 
-It also sits at a different altitude from the other three. bubblewrap, microsandbox, and Docker Sandboxes are engines, or a service built on an engine. MXC is a library that calls an engine.
+It also sits at a different altitude from the other four. bubblewrap, microsandbox, nanvix, and Docker Sandboxes are engines, or a service built on an engine. MXC is a library that calls an engine.
 
 ## Threat model worksheet
 
