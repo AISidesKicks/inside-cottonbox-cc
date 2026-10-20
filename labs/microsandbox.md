@@ -2,7 +2,7 @@
 
 A hands-on lab for running AI agents and untrusted code inside microsandbox, a local-first microVM runtime. It follows the same shape as the bubblewrap lab: start small, then add the pieces that make a sandbox usable for agents - resource limits, an egress allowlist, secrets, snapshots, and agent integrations.
 
-Everything here was verified on Linux with microsandbox 0.7.2, KVM enabled, and the runtime installed through the Python SDK. For the other two approaches see [the bubblewrap lab](bubblewrap.md) and [the Docker Sandboxes lab](dockersandboxes.md), including how each one blocks the network connections an agent should not make.
+Everything here was verified on Linux with microsandbox 0.7.8, KVM enabled, and the runtime installed through the Python SDK. For the other two approaches see [the bubblewrap lab](bubblewrap.md) and [the Docker Sandboxes lab](dockersandboxes.md), including how each one blocks the network connections an agent should not make.
 
 ## What microsandbox is
 
@@ -64,7 +64,7 @@ Check the host once before anything else:
 msb doctor
 ```
 
-Sample output on this machine:
+Sample output on this machine, with the tool's em dashes normalized to plain hyphens:
 
 ```
 info Platform: Linux x86_64
@@ -204,7 +204,7 @@ shell: 0
 NAME="Alpine Linux"
 ```
 
-Two API details for 0.7.2 that differ from the published docs:
+Two API details for 0.7.8 that differ from the published docs:
 
 - `name` and `id` are awaitable properties, so write `await sb.name`, not `await sb.name()`.
 - `exec` and `shell` return an `ExecOutput` with `stdout_text`, `stderr_text`, `stdout_bytes`, `stderr_bytes`, `exit_code`, and `success`.
@@ -608,16 +608,17 @@ From there you can point VS Code Remote-SSH at a sandbox, or run the documented 
 3. **Snapshots do not capture host connections or external mounts.** Restore supplies host paths again, and applications must reconnect.
 4. **Full snapshots need matching CPU and memory settings.** Keep the capture settings, or restore with `--disk-only`.
 5. **`Sandbox.create` resolves an existing runtime; it does not install one.** If the runtime is missing or partial, call `ensure_runtime()` or install it explicitly.
-6. **API drift is real in a beta project.** This lab was verified against 0.7.2, where `sb.name` is awaitable and the docs still show the callable form. Pin the SDK version in a lab you want to keep working.
+6. **API drift is real in a beta project.** This lab was verified against 0.7.8, where `sb.name` is awaitable and the docs still show the callable form. Pin the SDK version in a lab you want to keep working.
 7. **`msb rm` fails while a sandbox runs.** Stop first, or use `sb.destroy()` which stops and removes.
 8. **Mount only what the task needs.** A bind mount of `$HOME` or of the repo root throws away most of the isolation you just paid for.
 9. **A hostname rule without DNS rules breaks everything.** `Rule.allow_dns()` returns two rules, and you need the `*` to unpack them into the tuple.
 10. **Strict mode and TLS interception are a pair.** `strict=True` with a hostname rule and no `tls=TlsConfig()` denies the host you just allowed. The failure looks like a broken network, not a policy error.
-11. **`strict` defaults to `False` in 0.7.2**, while newer documentation describes it as enabled by default. Set it explicitly so the behaviour does not change under you.
+11. **`strict` defaults to `False` in 0.7.8**, while newer documentation describes it as enabled by default. Set it explicitly so the behaviour does not change under you.
 12. **Group rules ignore strict mode.** `DestGroup.PUBLIC` is not a hostname allow, so it keeps working when strict mode is on. That is the reason to prefer it when per-host precision is not needed.
 13. **An IPv6-only host is unreachable from a v4-only sandbox.** If a destination resolves to `2600::/12` addresses only, the connection fails even when the policy allows it, and the failure looks like a policy problem. Check the addresses before you debug the rules.
 14. **Enabling the `HOST` profile reopens your machine.** It is one profile flag away from every service on the host, including anything listening on loopback.
-15. **Some documented network options are not in 0.7.2 yet.** The HTTP deny-response config, for instance, is described in the docs but the class is missing from the installed SDK. Check the version before you rely on it.
+15. **Some documented network options are not in the SDK yet.** The HTTP deny-response config, for instance, is described in the docs, but `HttpConfig` is missing even in 0.7.8. Check the version before you rely on it.
+16. **The SDK version and the runtime version are separate.** SDK 0.7.8 still bundles `msb` 0.7.2, so a newer SDK does not give you a newer runtime. Check the bundled binary if a feature seems missing.
 
 ## Ecosystem
 
