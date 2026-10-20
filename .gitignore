@@ -3,7 +3,7 @@
 .pixi/*
 !.pixi/config.toml
 # cargo build output
-labs/mxc-demo/target/
+src/mxc-demo/target/
 # scratch space for temporary artifacts
 scratch/*
 !scratch/.gitkeep

@@ -98,27 +98,27 @@ unshare --user --pid echo ok
 The demo lives in this repo, so you can read every line before you run it:
 
 ```
-labs/mxc-demo/Cargo.toml      # one dependency: mxc-sdk = "1.0.1"
-labs/mxc-demo/src/main.rs     # six subcommands, one per lab below
-labs/mxc-demo/Cargo.lock      # pinned, so the build is reproducible
+src/mxc-demo/Cargo.toml      # one dependency: mxc-sdk = "1.0.1"
+src/mxc-demo/src/main.rs     # six subcommands, one per lab below
+src/mxc-demo/Cargo.lock      # pinned, so the build is reproducible
 ```
 
 Build it inside the pixi environment:
 
 ```sh
-pixi run cargo build --manifest-path labs/mxc-demo/Cargo.toml
+pixi run cargo build --manifest-path src/mxc-demo/Cargo.toml
 ```
 
 The first build compiles the whole dependency tree: 140 packages, 15 seconds cold on this machine.
 
-Where the build output goes matters less than you would think, and this repo has an opinion about it. The pixi environment sets `CARGO_TARGET_DIR` to `$SCRATCH/cargo-target`, so the compiler artifacts land in the scratch directory instead of inside `labs/mxc-demo/`. That is about 600 MB of build output, and it has no business sitting in a working tree. Scratch is disposable: wipe it and the next build re-creates it.
+Where the build output goes matters less than you would think, and this repo has an opinion about it. The pixi environment sets `CARGO_TARGET_DIR` to `$SCRATCH/cargo-target`, so the compiler artifacts land in the scratch directory instead of inside `src/mxc-demo/`. That is about 600 MB of build output, and it has no business sitting in a working tree. Scratch is disposable: wipe it and the next build re-creates it.
 
 ## Lab 2: discover what the host can run
 
 Before you write a policy, ask the host what it has:
 
 ```sh
-pixi run cargo run --quiet --manifest-path labs/mxc-demo/Cargo.toml -- host
+pixi run cargo run --quiet --manifest-path src/mxc-demo/Cargo.toml -- host
 ```
 
 Verified output on this machine:
@@ -152,7 +152,7 @@ let output = v1::run(request, Default::default())?;
 ```
 
 ```sh
-pixi run cargo run --quiet --manifest-path labs/mxc-demo/Cargo.toml -- run
+pixi run cargo run --quiet --manifest-path src/mxc-demo/Cargo.toml -- run
 ```
 
 Verified output:
@@ -192,7 +192,7 @@ let request = ContainerRequest {
 ```
 
 ```sh
-pixi run cargo run --quiet --manifest-path labs/mxc-demo/Cargo.toml -- fs
+pixi run cargo run --quiet --manifest-path src/mxc-demo/Cargo.toml -- fs
 ```
 
 Verified output:
@@ -233,7 +233,7 @@ network: Some(NetworkPolicy {
 ```
 
 ```sh
-pixi run cargo run --quiet --manifest-path labs/mxc-demo/Cargo.toml -- net-deny
+pixi run cargo run --quiet --manifest-path src/mxc-demo/Cargo.toml -- net-deny
 ```
 
 Verified output:
@@ -273,7 +273,7 @@ allow: Some(vec![
 ```
 
 ```sh
-pixi run cargo run --quiet --manifest-path labs/mxc-demo/Cargo.toml -- net-allow 104.20.23.154/32
+pixi run cargo run --quiet --manifest-path src/mxc-demo/Cargo.toml -- net-allow 104.20.23.154/32
 ```
 
 Verified output:
@@ -291,7 +291,7 @@ HTTP 200. The address is reachable on port 443 and nothing else is.
 Drop the second rule and run it again:
 
 ```sh
-pixi run cargo run --quiet --manifest-path labs/mxc-demo/Cargo.toml -- net-allow 104.20.23.154/32 203.0.113.9/32
+pixi run cargo run --quiet --manifest-path src/mxc-demo/Cargo.toml -- net-allow 104.20.23.154/32 203.0.113.9/32
 ```
 
 The request is refused before it starts, with this warning:
@@ -351,7 +351,7 @@ let outcome = process.wait()?;
 ```
 
 ```sh
-pixi run cargo run --quiet --manifest-path labs/mxc-demo/Cargo.toml -- pty
+pixi run cargo run --quiet --manifest-path src/mxc-demo/Cargo.toml -- pty
 ```
 
 Verified output:
