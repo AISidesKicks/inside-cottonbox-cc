@@ -2,7 +2,7 @@
 
 A hands-on lab for running AI coding agents inside bubblewrap. We start from the smallest possible sandbox and build up to a wrapper you can actually use: isolated home, read-only system tree, dropped capabilities, a seccomp deny-list, an audit log, and a probe script that proves the confinement works.
 
-The examples are generic - swap in whichever agent CLI you use.
+The examples are generic - swap in whichever agent CLI you use. The same ground is covered for the other two approaches in [the microsandbox lab](microsandbox.md) and [the Docker Sandboxes lab](dockersandboxes.md), including how each one blocks the network connections an agent should not make.
 
 ## Why bubblewrap for AI
 
@@ -511,6 +511,246 @@ tail -f ~/.local/share/ai-lab/home/.local/share/ai-lab/tool-calls.log
 
 Auditing is also a good way to tighten the sandbox: run for a week, look at what the agent actually touched, then decide which bind mounts you can drop.
 
+## Lab 8: control what the agent can reach
+
+An agent needs a short list of hosts: the model API, a package registry, maybe a git host. Everything else is an exfiltration channel waiting for the wrong tool call. bubblewrap has no allowlist of its own, so the network story is built from three pieces you can combine.
+
+### Level 1: no network at all
+
+`--unshare-net` gives the sandbox an empty network namespace. There is no interface, no route, and no resolver:
+
+```sh
+bwrap --unshare-net --unshare-user \
+  --ro-bind /usr /usr --symlink usr/lib64 /lib64 \
+  --proc /proc --dev /dev \
+  bash -c 'cat /proc/net/route; getent hosts example.com; echo "dns_exit=$?"'
+```
+
+Verified output:
+
+```
+Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask
+dns_exit=2
+```
+
+The empty routing table is the answer, and `dns_exit=2` shows name resolution is gone too. A direct connect fails with `Network is unreachable`:
+
+```
+direct: OSError [Errno 101] Network is unreachable
+```
+
+This is the right default for a review agent or a build that has vendored its dependencies. It is useless for an agent that has to call a model API, so the next level matters.
+
+### Level 2: one filtered channel out
+
+Keep the network namespace empty and give the agent exactly one way out: a proxy on the host, exposed to the sandbox as a unix socket. A unix socket crosses the namespace boundary through the filesystem, not through the network, so it works even with no routes.
+
+The proxy decides per host. Here is a complete one that allows a package registry and refuses everything else:
+
+```python
+#!/usr/bin/env python3
+"""Host-side filtering proxy on a unix socket: only ALLOWED hosts pass."""
+import http.server
+import os
+import select
+import socket
+import socketserver
+import urllib.request
+
+ALLOWED = {"pypi.org", "files.pythonhosted.org", "registry.npmjs.org"}
+SOCK = os.environ.get("AGENT_PROXY_SOCK", "/tmp/agent-proxy.sock")
+
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *args):
+        pass
+
+    def do_CONNECT(self):
+        host = self.path.split(":")[0]
+        if host not in ALLOWED:
+            self.send_response(403)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        try:
+            upstream = socket.create_connection((host, 443), timeout=10)
+        except OSError:
+            self.send_response(502)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.end_headers()
+        self._pipe(self.connection, upstream)
+
+    def do_GET(self):
+        host = self.headers.get("Host", "").split(":")[0]
+        if host not in ALLOWED:
+            self.send_response(403)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        try:
+            with urllib.request.urlopen(self.path, timeout=10) as resp:
+                body = resp.read()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except OSError:
+            self.send_response(502)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    def _pipe(self, a, b):
+        socks = [a, b]
+        while True:
+            r, _, _ = select.select(socks, [], [], 30)
+            if not r:
+                break
+            for s in r:
+                other = b if s is a else a
+                try:
+                    data = s.recv(65536)
+                except OSError:
+                    return
+                if not data:
+                    return
+                other.sendall(data)
+
+
+class UnixServer(socketserver.ThreadingUnixStreamServer):
+    daemon_threads = True
+
+
+if __name__ == "__main__":
+    if os.path.exists(SOCK):
+        os.unlink(SOCK)
+    UnixServer(SOCK, Handler).serve_forever()
+```
+
+Bind the socket into the sandbox:
+
+```sh
+bwrap --unshare-net --unshare-user \
+  --ro-bind /usr /usr --symlink usr/lib64 /lib64 \
+  --proc /proc --dev /dev \
+  --bind /tmp/agent-proxy.sock /run/agent-proxy.sock \
+  bash
+```
+
+Verified from inside a `--unshare-net` sandbox, talking to the socket directly:
+
+```
+allow-host: HTTP/1.1 200 OK
+deny-host: HTTP/1.1 403 Forbidden
+```
+
+Three details decide whether this works in practice.
+
+The socket must be bind-mounted read-write, because connecting to a unix socket needs write permission on the socket file. A read-only bind gives `EACCES`.
+
+The proxy resolves names on the host, so the sandbox never needs DNS and cannot smuggle data out through queries.
+
+And a unix socket is not something `HTTP_PROXY` can point at. Proxy environment variables carry a `host:port` URL, so tools that speak to a TCP proxy cannot use this socket directly. Python is the exception, with the `requests-unixsocket` package:
+
+```python
+import requests
+
+session = requests.Session()
+session.trust_env = False
+session.proxies = {"https": "http+unix://%2Frun%2Fagent-proxy.sock"}
+print(session.get("https://pypi.org/simple/", timeout=10).status_code)
+```
+
+If the agent's tooling is curl, pip, npm, or git, you want a TCP proxy instead, and then the filtering has to happen with host firewall rules rather than inside the namespace. Either way the sandbox still has no route of its own, so the allowlist is enforced in one place.
+
+### Level 3: take the internet socket away
+
+Proxy environment variables are a request, not a guarantee. A tool that ignores `HTTPS_PROXY`, or an agent that opens a raw socket, walks straight past the proxy. The durable version is to deny the syscalls that create internet sockets, so the proxy socket is the only channel that physically exists.
+
+That is a seccomp rule on `socket(2)`, and it can be written without libseccomp by hand-rolling the BPF program. Save this as `mkfilter.py`:
+
+```python
+#!/usr/bin/env python3
+"""Write a cBPF filter that denies socket(AF_INET) and socket(AF_INET6).
+
+No libseccomp needed. The result is loaded by bubblewrap with --seccomp.
+"""
+import struct
+import sys
+
+BPF_LD_W_ABS = 0x20
+BPF_JEQ_K = 0x15
+BPF_RET_K = 0x06
+
+AUDIT_ARCH_X86_64 = 0xC000003E
+SYS_SOCKET = 41
+AF_INET = 2
+AF_INET6 = 10
+SECCOMP_RET_ALLOW = 0x7FFF0000
+SECCOMP_RET_ERRNO = 0x00050000 | 1  # EPERM
+
+# (code, jt, jf, k). Jump offsets are relative to the next instruction.
+PROGRAM = [
+    (BPF_LD_W_ABS, 0, 0, 4),              # 0: load arch
+    (BPF_JEQ_K, 0, 5, AUDIT_ARCH_X86_64),  # 1: not x86_64 -> deny
+    (BPF_LD_W_ABS, 0, 0, 0),               # 2: load syscall number
+    (BPF_JEQ_K, 0, 4, SYS_SOCKET),         # 3: not socket -> allow
+    (BPF_LD_W_ABS, 0, 0, 16),              # 4: load args[0], the address family
+    (BPF_JEQ_K, 1, 0, AF_INET),            # 5: AF_INET -> deny
+    (BPF_JEQ_K, 0, 1, AF_INET6),           # 6: AF_INET6 -> deny
+    (BPF_RET_K, 0, 0, SECCOMP_RET_ERRNO),  # 7: deny
+    (BPF_RET_K, 0, 0, SECCOMP_RET_ALLOW),  # 8: allow
+]
+
+
+def main() -> None:
+    out = bytearray()
+    for code, jt, jf, k in PROGRAM:
+        out += struct.pack("HBBI", code, jt, jf, k)
+    with open(sys.argv[1], "wb") as fh:
+        fh.write(out)
+    print(f"wrote {len(out)} bytes to {sys.argv[1]}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Build it and load it:
+
+```sh
+python3 mkfilter.py /run/user/1000/inet.bpf
+
+bwrap --unshare-user \
+  --ro-bind /usr /usr --symlink usr/lib64 /lib64 \
+  --proc /proc --dev /dev \
+  --seccomp 3 3< /run/user/1000/inet.bpf \
+  bash
+```
+
+The `3<` redirection opens the filter on file descriptor 3, and `--seccomp 3` tells bubblewrap to read it from there. Verified from inside:
+
+```
+inet : blocked 1 Operation not permitted
+inet6 : blocked 1 Operation not permitted
+unix : CREATED
+```
+
+That is the shape you want for an agent that still needs a local MCP server: the unix socket keeps working, and every internet socket returns `EPERM` before a packet is sent.
+
+If you prefer libseccomp, the same rule in the generator style of Lab 6 is `Arg(0, seccomp.EQ, AF_INET)` and `Arg(0, seccomp.EQ, AF_INET6)` on the `socket` syscall. The hand-rolled version above needs no packages, which matters on a minimal host.
+
+### What the agent still cannot do
+
+Levels 1 to 3 cover the network, and the network is where exfiltration goes. Two channels stay open on purpose, because an agent needs them:
+
+- **The model API.** That is usually the one host you cannot block. Give it the narrowest possible scope, and remember that anything the agent can read can be sent there.
+- **Your MCP servers.** Run them over a unix socket inside the sandbox, so the seccomp rule above does not break them.
+
 ## Threat model worksheet
 
 Write this down for your own deployment and check it against reality. A sandbox is only as good as the assumptions behind it.
@@ -523,10 +763,15 @@ Write this down for your own deployment and check it against reality. A sandbox 
 | Kernel exploit chains needing rare syscalls | seccomp deny-list (`userfaultfd`, `bpf`, `keyctl`, `perf_event_open`) |
 | TIOCSTI keystroke injection | `--new-session` plus the `ioctl` rule |
 | Module loading, mount manipulation, kernel re-execution | namespaces plus the seccomp deny-list |
+| Exfiltration to a host you did not intend to allow | the filtering proxy, or the socket-family seccomp rule |
+| Data smuggled out through DNS lookups | no resolver in the sandbox, the proxy resolves on the host |
+| Reaching the metadata service or private networks | empty network namespace plus a deny-by-default proxy |
 
 | Not covered | Why |
 |---|---|
 | Network exfiltration of project files | the agent needs the network by default. Use `AI_LAB_NO_NET=1` for strict offline runs |
+| Sending secrets through an allowed host | an allowlisted host can still be used to exfiltrate |
+| A tool that ignores proxy variables | only the socket-family seccomp rule closes this, and it breaks tools that need the internet |
 | Kernel exploits using only allowed syscalls | a deny-list cannot remove unknown bugs |
 | Side channels against other host processes | out of scope for a namespace-based sandbox |
 | A malicious MCP server or plugin | it runs inside the sandbox and inherits exactly this policy, no more and no less |
@@ -543,6 +788,10 @@ Write this down for your own deployment and check it against reality. A sandbox 
 8. `/dev` is fresh, not shared. GPU access and similar device integrations are unavailable.
 9. `clone3` cannot be inspected by BPF, so the filter targets `clone` and `unshare` instead. `--disable-userns` is what actually prevents nested user namespaces regardless of how they are requested.
 10. `--clearenv` must come before `--setenv`, otherwise you clear the variables you just set.
+11. bubblewrap has no host allowlist. Filtering is a proxy or a firewall job, and the sandbox has no opinion about which host is fine.
+12. A bind-mounted unix socket must be read-write. Connecting needs write permission on the socket file, and a read-only bind fails with `EACCES`.
+13. Proxy environment variables do not stop a tool that ignores them. The socket-family seccomp rule does, at the cost of every internet tool in the sandbox.
+14. The hand-rolled BPF filter in Lab 8 is x86_64 only, because it checks the audit architecture. On other architectures, build the equivalent with libseccomp.
 
 ## Ecosystem
 

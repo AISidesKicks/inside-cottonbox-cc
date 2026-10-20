@@ -2,7 +2,7 @@
 
 A hands-on style guide to Docker Sandboxes, Docker's microVM sandbox for AI coding agents. It follows the same shape as [the bubblewrap lab](bubblewrap.md) and [the microsandbox lab](microsandbox.md), so you can compare the three side by side.
 
-> **Status of this page.** This is a research brief built from Docker's own documentation and product announcements. The `sbx` CLI was not installed or run in this environment, so the command examples are illustrative rather than transcripts. Treat them as an accurate map of the interface, not as verified output.
+> **Status of this page.** The policy, approval, and audit sections were verified live against `sbx` 0.48.0 on Ubuntu 26.04 with KVM, using the `shell` agent and real sandboxes. The workflow, templates, MCP, and editor sections are built from Docker's own documentation and are illustrative rather than transcripts.
 
 ## What Docker Sandboxes is
 
@@ -194,6 +194,206 @@ sbx policy rm network example.com
 
 The global preset you chose at first run is just a starting rule set. You can keep `Locked Down` and allow exactly the hosts a task needs, which is the pattern worth copying: start from deny, add the model provider, the package registry, and the Git host, and nothing else.
 
+### The three presets
+
+The preset is the baseline every sandbox inherits:
+
+| Preset | What it does |
+|---|---|
+| `Open` | all outbound TCP allowed, no restrictions |
+| `Balanced` | default deny, with a baseline allowlist covering AI provider APIs, package managers, code hosts, container registries, and common cloud services |
+| `Locked Down` | no baseline allow rules, every destination needs an explicit rule from you or a kit |
+
+`Balanced` is not small. On this machine it installs 194 allow rules:
+
+```sh
+sbx policy init balanced
+```
+
+```console
+$ sbx policy ls
+POLICY         SOURCE   APPLIES TO   SUMMARY
+local-policy   local    all          network: 194 allow; filesystem read: 1 allow; filesystem write: 1 allow
+```
+
+For a machine that runs agents unattended, `Locked Down` is the interesting one, because the baseline is exactly the list of hosts you have not thought about yet.
+
+In a non-interactive environment the prompt cannot be shown, so set the preset first:
+
+```sh
+sbx policy init deny-all
+```
+
+The accepted values are `allow-all`, `balanced`, and `deny-all`. `sbx policy reset` clears the store and prompts again.
+
+### Rules
+
+A rule covers a destination host, and it can be scoped to one sandbox or to every sandbox on the machine:
+
+```sh
+sbx policy allow network api.anthropic.com
+sbx policy allow network "api.anthropic.com,*.npmjs.org,*.pypi.org"
+sbx policy deny network ads.example.com
+
+# scoped to a single sandbox
+sbx policy allow network --sandbox my-sandbox api.example.com
+sbx policy deny network --sandbox my-sandbox ads.example.com
+```
+
+Rules can be narrowed further to an HTTP method and a path, which is the difference between "may talk to the GitHub API" and "may read these repositories":
+
+```sh
+sbx policy allow network api.github.com --method GET --path '/repos/org/project/**'
+sbx policy allow network api.github.com --method GET,HEAD
+sbx policy allow network api.github.com --method ANY
+```
+
+Deny rules take precedence over allow rules, so the usual shape is a broad allow with a narrow deny carved out of it:
+
+```sh
+sbx policy allow network api.example.com
+sbx policy deny network api.example.com --method POST --path '/admin/**'
+```
+
+Since version 0.38.0 you can also deny at creation time, which is the cleaner place for it:
+
+```sh
+sbx create --deny-network ads.example.com --deny-network "*.openai.com" claude .
+sbx run --deny-network ads.example.com claude
+```
+
+Verified: two sandboxes created with and without that flag, against the same global policy. The one with the deny got `403` from a host the policy otherwise allows, the one without it reached the host normally.
+
+```console
+$ sbx policy ls netlab2
+  Policy for sandbox:  netlab2
+
+NETWORK
+  • allow 194 hosts from local-policy
+  • deny 2 hosts from 38c7a2a0-9c9b-4219-bfea-8a9d79d9afb6
+  • http allow 1 host from local-policy
+  • http deny 1 host from local-policy
+```
+
+### Check before you run
+
+`sbx policy check network` answers the question without starting a sandbox, and it returns a non-zero exit status when the answer is no:
+
+```sh
+sbx policy check network api.anthropic.com
+sbx policy check network blocked.example.com
+sbx policy check network "myhost:22"
+sbx policy check network --sandbox my-sandbox api.example.com
+```
+
+Verified output:
+
+```
+  Allowed:     api.anthropic.com:443
+  Governance:  Local policy only
+  Context:     global
+```
+
+```
+  Denied:      blocked.example.com:443
+  Governance:  Local policy only
+  Context:     global
+  Reason:      no matching allow rule (default deny)
+```
+
+A bare hostname is evaluated on port 443. `host:port`, an IP, and a URL all work too, and `--json` gives you the same answer in a form a script can read.
+
+### When the agent asks for access
+
+Under `Balanced` and `Locked Down`, a destination with no matching rule is not silently dropped. The sandbox gets a `403`, the destination lands in an approval queue, and a human decides:
+
+```console
+$ sbx exec netlab curl -sS -i https://example.com
+HTTP/1.1 403 Forbidden
+Content-Length: 90
+Content-Type: text/plain
+
+Approval required for example.com:443.
+
+Review and respond with:
+  sbx policy approval ls
+```
+
+The queue lists every pending request with the sandbox that made it:
+
+```console
+$ sbx policy approval ls
+APPROVAL                                              SANDBOX   TITLE                DETAIL
+network:W3eISyIAQ2Wt1bUKNNjEP2faHGQNNqSQoBGRexU7NMg   netlab    example.com:443      Protocol: TCP Resource type: domain no matching allow rule (default deny)   allow (Allow), dismiss (Dismiss)
+network:-Ere5cxW9P6NuV_BjwsQtjajKy767xw7D-ebLvg973E   netlab    169.254.169.254:80   Protocol: TCP Resource type: domain no matching allow rule (default deny)   allow (Allow), dismiss (Dismiss)
+```
+
+Approving is a policy change, so it applies to later requests rather than the one that was blocked:
+
+```sh
+sbx policy approval respond network:W3eISyIAQ2Wt1bUKNNjEP2faHGQNNqSQoBGRexU7NMg --option allow
+```
+
+Verified: the same `curl` that returned `403` returned `200` after the approval.
+
+For an unattended fleet, pre-approve the destinations the task needs instead of answering prompts.
+
+### The audit log
+
+`sbx policy log` is the record of what the agents actually did, split into blocked and allowed requests:
+
+```console
+$ sbx policy log
+BLOCKED REQUESTS
+SANDBOX   TYPE      HOST                 PROXY     RULE   REASON                                  LAST SEEN         COUNT
+netlab    network   example.com:443      forward   ...     No matching allow rule (default deny)   08:09:54 20-Oct   2
+
+ALLOWED REQUESTS
+SANDBOX   TYPE      HOST                      PROXY            RULE   REASON   LAST SEEN         COUNT
+netlab    network   api.anthropic.com:443     forward-bypass                   08:09:49 20-Oct   1
+netlab    network   archive.ubuntu.com:80     forward                          08:09:41 20-Oct   1
+```
+
+Read this after a run. Destinations that show up here but not in your policy are the ones your agent wanted and you did not know about. The count column tells you whether it was one request or a stream.
+
+### What the agent cannot reach
+
+Verified from inside a running sandbox:
+
+```
+anthropic=401          # allowed host, reachable
+example=403            # not in the policy
+metadata=403           # 169.254.169.254
+hostinternal=403       # host.docker.internal
+```
+
+The `401` is the point worth reading: the host was reachable, and the API answered because no key was presented. Reachability and authorization are separate problems, and the policy only settles the first.
+
+The metadata service and `host.docker.internal` are refused by the policy, not by luck. Note that the second line is also why a sandbox cannot be used to attack services on your machine.
+
+Docker itself is not a way out either. The socket inside the sandbox looks like a Docker socket, and it is one, but it belongs to the sandbox's own private engine:
+
+```console
+$ sbx exec netlab docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS   PORTS   NAMES
+```
+
+Empty, while the host engine has running containers. The agent has a Docker daemon, and it is not yours.
+
+### Kits and their rules
+
+Agent kits add per-sandbox allow rules on top of the preset, including under `Locked Down`. That is convenient, and it means the effective policy is not only what you wrote. Inspect it:
+
+```sh
+sbx policy ls my-sandbox --source kit --type network --wide
+```
+
+To block something a kit allowed, add an explicit deny rule, which takes precedence:
+
+```sh
+sbx policy deny network --sandbox my-sandbox openrouter.ai
+```
+
 ## Lab 4: credentials and the sentinel proxy
 
 No credentials reach a sandbox by default. When you do provide them, they never enter the VM. Instead the agent sees a sentinel value, and a host-side proxy replaces it with the real credential on the way out, only for the hosts you allowed.
@@ -310,11 +510,14 @@ What the sandbox defends against:
 
 | Threat | Covered by |
 |---|---|
-| Unattended agent runs destructive commands | workload confined to a microVM; host home, SSH keys, and browser data are not in it |
+| Prompt injection runs destructive commands | the workload is confined to one VM; host home, SSH keys, and browser data are not in it |
 | Agent builds or runs containers | private Docker Engine, no host socket |
 | Kernel exploit from generated code | guest has its own kernel |
 | Cloud metadata and arbitrary egress | default-deny TCP, internal DNS, blocked ICMP |
 | API key theft from the sandbox | sentinel plus host-side proxy injection; values never enter the VM |
+| Exfiltration to a host you did not allow | default-deny policy, approval queue, and the audit log |
+| Reaching services on your machine | `host.docker.internal` and private ranges are refused by policy |
+| Reusing the host Docker daemon to escape | the sandbox has its own engine; the host socket is not mounted |
 
 What it does not cover, or where the default is weaker than it sounds:
 
@@ -327,6 +530,8 @@ What it does not cover, or where the default is weaker than it sounds:
 | SSH agent forwarding is on | the sandbox can request signatures from the forwarded agent |
 | Templates can capture secrets | anything written to the sandbox filesystem is saved into the template |
 | Local MCP stdio servers | run on the host, outside the VM boundary |
+| A destination you allowlisted | an allowed host can carry anything the agent reads |
+| Kits that add their own rules | a kit can allow hosts you never approved; check `sbx policy ls --source kit` |
 | Hypervisor and guest kernel escapes | reduced surface, not zero |
 
 The practical takeaway is the same as the other labs: the boundary is real, but it is the boundary you configured. Direct mount plus `Balanced` networking plus a broad MCP list is a very different risk posture from clone mode plus `Locked Down` plus nothing extra.
@@ -345,6 +550,10 @@ The practical takeaway is the same as the other labs: the boundary is real, but 
 10. **Virtiofs caching is on by default.** If you suspect stale reads, recreate with `DOCKER_SANDBOXES_ENABLE_VIRTIOFS_CACHE=0`.
 11. **Upstream proxy support is experimental,** and only HTTP and HTTPS can be forwarded to it.
 12. **UDP egress is experimental.** If a tool needs UDP, enable it and add rules; do not assume it works because TCP does.
+13. **Approving a request does not retry it.** The approval applies to later connections, so run the blocked operation again.
+14. **`sbx policy check network` ignores HTTP method and path.** It reports the decision for the host, which can differ from the decision for one method on that host. Use `sbx policy ls --type http` for those.
+15. **`sbx policy rm` and `sbx rm` want a terminal.** In a script, pass `--force`.
+16. **A `Balanced` preset is broad.** Its 194 rules cover AI providers, registries, code hosts, and common cloud services, which is convenient and not what a locked-down deployment wants.
 
 ## Ecosystem
 

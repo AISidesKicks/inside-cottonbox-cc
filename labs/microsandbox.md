@@ -2,7 +2,7 @@
 
 A hands-on lab for running AI agents and untrusted code inside microsandbox, a local-first microVM runtime. It follows the same shape as the bubblewrap lab: start small, then add the pieces that make a sandbox usable for agents - resource limits, an egress allowlist, secrets, snapshots, and agent integrations.
 
-Everything here was verified on Linux with microsandbox 0.7.2, KVM enabled, and the runtime installed through the Python SDK.
+Everything here was verified on Linux with microsandbox 0.7.2, KVM enabled, and the runtime installed through the Python SDK. For the other two approaches see [the bubblewrap lab](bubblewrap.md) and [the Docker Sandboxes lab](dockersandboxes.md), including how each one blocks the network connections an agent should not make.
 
 ## What microsandbox is
 
@@ -280,6 +280,144 @@ The destination kinds are `ANY`, `CIDR`, `IP`, `DOMAIN`, `DOMAIN_SUFFIX`, and `G
 
 For stricter work, where the agent must not reach the internet at all, drop networking entirely by omitting any allow rules with `default_egress=Action.DENY` and an empty rule set, or keep the network off and pass data in with volumes.
 
+### The agent recipe: model API, registry, nothing else
+
+The policy an agent actually wants is narrow. It needs its model endpoint, a package registry, and maybe a git host. Everything else, including cloud metadata, private ranges, and telemetry endpoints, stays closed.
+
+```python
+from microsandbox import (
+    Action,
+    Destination,
+    Network,
+    NetworkPolicy,
+    Protocol,
+    Rule,
+    Sandbox,
+    TlsConfig,
+)
+
+net = Network(
+    policy=NetworkPolicy(
+        default_egress=Action.DENY,
+        rules=(
+            Rule.allow(
+                destination=Destination.domain("api.anthropic.com"),
+                protocol=Protocol.TCP,
+                port=443,
+            ),
+            Rule.allow(
+                destination=Destination.domain("registry.npmjs.org"),
+                protocol=Protocol.TCP,
+                port=443,
+            ),
+            *Rule.allow_dns(),
+        ),
+    ),
+    deny_domains=("telemetry.example.com",),
+    strict=True,
+    tls=TlsConfig(),
+)
+
+sb = await Sandbox.create("agent", image="alpine", network=net)
+```
+
+`Rule.allow_dns()` is worth a second look. It returns a pair of rules, one for UDP and one for TCP on port 53, and you unpack it with `*`. Without those rules the sandbox cannot resolve anything, and a policy that permits HTTPS to a hostname becomes unusable.
+
+`Destination.group(DestGroup.PUBLIC)` is the loose version, useful when you want "any public address" without enumerating hosts. `DestGroup` also carries `PRIVATE`, `HOST`, `LOOPBACK`, `LINK_LOCAL`, `METADATA`, and `MULTICAST`, which is handy for writing rules that describe what you are refusing rather than what you permit.
+
+Verified behaviour of that policy shape, inside a live sandbox:
+
+```
+allowed host 1: exit 0
+allowed host 2: exit 0
+http port 80 blocked: exit 1
+other host blocked: exit 1
+deny_domain blocked: exit 1
+metadata blocked: exit 1
+```
+
+Five things worth reading out of that. HTTPS to a permitted host works. Plain HTTP on port 80 does not, because the rule named port 443 and nothing else. The cloud metadata address `169.254.169.254` is refused, which is the single most valuable line in the table. A host named in `deny_domains` is refused even if a broader rule would have allowed it. And a host that no rule mentions is refused, which is the whole point of default-deny.
+
+### Strict mode and TLS interception travel together
+
+`strict=True` is the setting that makes hostname rules mean what they say. With it on, a hostname allow rule fails closed unless microsandbox can inspect the request authority: plaintext HTTP is checked through the `Host` header, HTTPS needs the connection intercepted so the authority inside the session is visible.
+
+That is why the recipe above passes `tls=TlsConfig()`. Verified matrix, all against the same live sandbox setup:
+
+| Policy | Result |
+|---|---|
+| hostname rule, `strict=False` | allowed |
+| hostname rule, `strict=True`, no interception | **blocked** |
+| hostname rule, `strict=True`, `tls=TlsConfig()` | allowed |
+| group rule, `strict=True` | allowed |
+
+The middle row is the trap. Turn on strict mode, write a hostname allow rule, forget the interception, and every permitted host starts failing with a connection error. It looks like a broken network, but the network is working exactly as configured.
+
+Group rules are not hostname-based allows, so strict mode leaves them alone. That is the practical reason to prefer `DestGroup.PUBLIC` when you do not need per-host precision.
+
+Without strict mode, an agent could point a permitted hostname at an IP address it controls, and the policy would allow the connection. That is the DNS rebinding trick, and strict mode is what closes it.
+
+### Turning the network off completely
+
+Sometimes the right answer is no network at all:
+
+```python
+from microsandbox import Network, Sandbox
+
+sb = await Sandbox.create("offline", image="alpine", network=Network.none())
+```
+
+`Network.none()` keeps the device but denies traffic in both directions. The CLI equivalent is `msb create alpine --name offline --no-net`.
+
+### Coarse profiles
+
+When the exact hosts do not matter, the profile helpers are quicker than a rule list:
+
+```python
+from microsandbox import Network, NetworkProfile, Sandbox
+
+net = Network.from_profiles(NetworkProfile.PUBLIC, NetworkProfile.HOST)
+```
+
+`NetworkProfile` has `PUBLIC`, `PRIVATE`, and `HOST`. The `HOST` group is what lets a sandbox reach `host.microsandbox.internal`, a name that resolves to the host machine. It is blocked by default, and enabling it reopens the path to everything running on your machine, so treat it as a deliberate decision.
+
+The CLI spells the same thing as a profile list:
+
+```sh
+msb create python --name worker --net "public,host"
+```
+
+### From the command line
+
+The CLI carries the same policy engine, which is what you want when the agent is not started from Python:
+
+```sh
+msb create alpine --name restricted-worker \
+  --net-default-egress deny \
+  --net-rule "allow@github.com:tcp:443,allow@dns"
+```
+
+The rule syntax is `action@destination:protocol:port`, comma separated. It maps one to one onto the SDK objects above, so you can prototype in the shell and move the same policy into code.
+
+### Caps that slow exfiltration down
+
+Rate limits are not a firewall, but they turn a fast dump into a slow one:
+
+```python
+from microsandbox import Network, NetworkRateLimiter, RateLimiter, Sandbox, TokenBucket
+
+net = Network(
+    rate_limiter=NetworkRateLimiter(
+        egress=RateLimiter(
+            bandwidth=TokenBucket(size=1_048_576, refill_time_ms=1_000, one_time_burst=524_288),
+            ops=TokenBucket(size=1_000, refill_time_ms=1_000),
+        ),
+    ),
+)
+```
+
+`Network` also takes `max_tcp_connections` and `max_udp_connections`. A connection cap limits how many sockets the agent can hold open at once, which is a cheap way to stop a fan-out attack against many hosts.
+
 ## Lab 5: secrets that do not enter the VM
 
 Agents need API keys, and a key pasted into a VM is a key exposed to everything running in that VM. microsandbox replaces the value with a placeholder inside the guest and substitutes the real value only for the hosts you allow.
@@ -447,6 +585,8 @@ From there you can point VS Code Remote-SSH at a sandbox, or run the documented 
 | Kernel exploit from generated code | the guest has its own kernel; a shared-kernel bug is not automatically reachable |
 | Cloud metadata and private-range access | default networking blocks private, link-local, and metadata destinations |
 | Exfiltration to arbitrary hosts | a `default_egress=DENY` policy with an explicit allowlist |
+| DNS rebinding, where a permitted name points at an attacker's IP | strict hostname mode fails closed when the authority cannot be inspected |
+| Exfiltration through DNS lookups | the resolver is policy-aware, and `Rule.allow_dns()` grants only the lookups you expect |
 | Credential exposure inside the workload | secret substitution keeps values out of the guest and only for allowed hosts |
 | Cross-project contamination | bind only the target project directory as a volume |
 | Dirty state between tasks | each restore or branch is a private copy; destroy the worker when done |
@@ -455,6 +595,8 @@ From there you can point VS Code Remote-SSH at a sandbox, or run the documented 
 |---|---|
 | A hypervisor or guest-kernel escape | hardware isolation shrinks the surface; it does not make it zero |
 | Network exfiltration to a host you allowed | an allowlisted host is trusted by definition |
+| A fan-out to many hosts | connection caps and rate limits slow it down, they do not stop it |
+| The `HOST` profile | it reopens the path to every service on your machine |
 | Image supply chain | the OCI image you pull is part of your trust base; pin digests for serious work |
 | Side channels between host processes | out of scope for a local microVM |
 | Data buffered by your application during a snapshot | flush and commit before capture; flushing does not include application buffers |
@@ -469,6 +611,13 @@ From there you can point VS Code Remote-SSH at a sandbox, or run the documented 
 6. **API drift is real in a beta project.** This lab was verified against 0.7.2, where `sb.name` is awaitable and the docs still show the callable form. Pin the SDK version in a lab you want to keep working.
 7. **`msb rm` fails while a sandbox runs.** Stop first, or use `sb.destroy()` which stops and removes.
 8. **Mount only what the task needs.** A bind mount of `$HOME` or of the repo root throws away most of the isolation you just paid for.
+9. **A hostname rule without DNS rules breaks everything.** `Rule.allow_dns()` returns two rules, and you need the `*` to unpack them into the tuple.
+10. **Strict mode and TLS interception are a pair.** `strict=True` with a hostname rule and no `tls=TlsConfig()` denies the host you just allowed. The failure looks like a broken network, not a policy error.
+11. **`strict` defaults to `False` in 0.7.2**, while newer documentation describes it as enabled by default. Set it explicitly so the behaviour does not change under you.
+12. **Group rules ignore strict mode.** `DestGroup.PUBLIC` is not a hostname allow, so it keeps working when strict mode is on. That is the reason to prefer it when per-host precision is not needed.
+13. **An IPv6-only host is unreachable from a v4-only sandbox.** If a destination resolves to `2600::/12` addresses only, the connection fails even when the policy allows it, and the failure looks like a policy problem. Check the addresses before you debug the rules.
+14. **Enabling the `HOST` profile reopens your machine.** It is one profile flag away from every service on the host, including anything listening on loopback.
+15. **Some documented network options are not in 0.7.2 yet.** The HTTP deny-response config, for instance, is described in the docs but the class is missing from the installed SDK. Check the version before you rely on it.
 
 ## Ecosystem
 
