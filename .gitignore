@@ -2,3 +2,5 @@
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+# cargo build output
+labs/mxc-demo/target/
