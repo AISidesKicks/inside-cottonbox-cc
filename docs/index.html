@@ -149,6 +149,14 @@ footer {
 
 <p><a href="https://github.com/AISidesKicks/inside-cottonbox-cc">Browse the labs on GitHub</a></p>
 
+<h2>One layer above</h2>
+
+<p>The three labs above are engines, or a service built on an engine. <strong>MXC</strong> (Microsoft eXecution Container) is the wrapper above them: one typed policy model, and it drives whichever engine the host happens to offer - bubblewrap, LXC, a microVM, or hyperlight.</p>
+
+<p>That means the same filesystem, network, and UI rules can be written once and mean the same thing on a Linux CI box and a Windows workstation, and the isolation can be escalated from a namespace sandbox to a microVM without rewriting the policy.</p>
+
+<p><a href="https://github.com/AISidesKicks/inside-cottonbox-cc">Read the MXC lab on GitHub</a></p>
+
 <h2>Sandboxing in the frontier</h2>
 
 <p>Frontier labs like DeepSeek run a combination of sandboxes, and they run straight into a classical <a href="https://en.wikipedia.org/wiki/Trilemma">trilemma</a>. Three properties matter at once:</p>
