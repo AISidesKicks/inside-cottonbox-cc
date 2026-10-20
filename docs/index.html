@@ -139,11 +139,12 @@ footer {
 
 <h2>Sandbox labs</h2>
 
-<p>Three hands-on labs, one per sandboxing approach. Each follows the same shape: what it is, how to run it, how to constrain it, and where it breaks.</p>
+<p>Four hands-on labs, one per sandboxing approach. Each follows the same shape: what it is, how to run it, how to constrain it, and where it breaks.</p>
 
 <ul>
 <li><strong>bubblewrap</strong> - the slim, hand-built boundary. Namespaces and seccomp around a single process, no daemon and no root, for trimming what a process can see.</li>
 <li><strong>microsandbox</strong> - the SDK-first microVM runtime. Each sandbox gets its own guest kernel and is created from your own code, with live snapshots and branching.</li>
+<li><strong>nanvix</strong> - the purpose-built microVM with its own operating system. The guest is not Linux, so the workload has to be ported, and the network syscalls are blocked outright.</li>
 <li><strong>Docker Sandboxes</strong> - the managed, agent-first microVM. The sbx CLI runs coding agents unattended with a private Docker Engine, workspace modes, and a credential proxy.</li>
 </ul>
 
@@ -151,7 +152,7 @@ footer {
 
 <h2>One layer above</h2>
 
-<p>The three labs above are engines, or a service built on an engine. <strong>MXC</strong> (Microsoft eXecution Container) is the wrapper above them: one typed policy model, and it drives whichever engine the host happens to offer - bubblewrap, LXC, a microVM, or hyperlight.</p>
+<p>The four labs above are engines, or a service built on an engine. <strong>MXC</strong> (Microsoft eXecution Container) is the wrapper above them: one typed policy model, and it drives whichever engine the host happens to offer - bubblewrap, LXC, a microVM, or hyperlight.</p>
 
 <p>That means the same filesystem, network, and UI rules can be written once and mean the same thing on a Linux CI box and a Windows workstation, and the isolation can be escalated from a namespace sandbox to a microVM without rewriting the policy.</p>
 
