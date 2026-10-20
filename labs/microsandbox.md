@@ -2,7 +2,7 @@
 
 A hands-on lab for running AI agents and untrusted code inside microsandbox, a local-first microVM runtime. It follows the same shape as the bubblewrap lab: start small, then add the pieces that make a sandbox usable for agents - resource limits, an egress allowlist, secrets, snapshots, and agent integrations.
 
-Everything here was verified on Linux with microsandbox 0.7.8, KVM enabled, and the runtime installed through the Python SDK. For the other three approaches see [the bubblewrap lab](bubblewrap.md), [the nanvix lab](nanvix.md), and [the Docker Sandboxes lab](dockersandboxes.md), including how each one blocks the network connections an agent should not make.
+Everything here was verified on Linux with microsandbox 0.7.8, KVM enabled, and the runtime installed through the Python SDK. microsandbox is the **microVM approach**: a hardware boundary with its own Linux guest kernel. [The nanvix lab](nanvix.md) and [the Docker Sandboxes lab](dockersandboxes.md) take the same approach with a different guest or a different wrapper, [the bubblewrap lab](bubblewrap.md) covers the cheaper namespace approach, and [the MXC lab](mxc.md) covers the policy layer over the engines. Every lab covers how the approach blocks the network connections an agent should not make.
 
 ## What microsandbox is
 
@@ -15,10 +15,11 @@ Each sandbox is a lightweight virtual machine with its own Linux kernel, filesys
 - **Programmable.** CPUs, memory, volumes, network policy, secrets, scripts, patches, and lifecycle are all configurable from the CLI or an SDK.
 - **Multi-language SDKs.** TypeScript, Rust, Python, Go, and Ruby expose the same model. This lab uses Python, because this repo runs a Python environment through pixi.
 
-The comparison to the bubblewrap lab is useful:
+The comparison to the bubblewrap lab is useful, because it is the other side of the main fork:
 
 | | bubblewrap | microsandbox |
 |---|---|---|
+| Approach | namespaces on the host kernel | microVM, Linux guest |
 | Isolation | namespaces + seccomp, shared host kernel | own guest kernel, KVM or libkrun |
 | Start cost | milliseconds | tens to hundreds of milliseconds, plus image checks |
 | Inputs | paths you bind in by hand | OCI images, disk images, host directories |

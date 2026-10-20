@@ -2,7 +2,7 @@
 
 A hands-on lab for Nanvix, a purpose-built microVM with a purpose-built operating system inside it. Not a Linux VM, not a container, and not a namespace sandbox: a different kernel and a different OS, running your Python workload behind a hardware boundary.
 
-Everything in the "Verified output" blocks was produced on this machine, on Linux, with KVM, using the pinned `nanvix-python` bundle from the upstream release. The other approaches have their own labs: [bubblewrap](bubblewrap.md), [microsandbox](microsandbox.md), [Docker Sandboxes](dockersandboxes.md), and [MXC](mxc.md), the framework that can drive Nanvix as a backend.
+Everything in the "Verified output" blocks was produced on this machine, on Linux, with KVM, using the pinned `nanvix-python` bundle from the upstream release. Nanvix is the **microVM approach**, the same family as [microsandbox](microsandbox.md) and [Docker Sandboxes](dockersandboxes.md), but with a guest operating system that is not Linux: the guest kernel is Nanvix's own microkernel, and that is the whole point. [bubblewrap](bubblewrap.md) covers the cheaper namespace approach, and [MXC](mxc.md) covers the policy layer that can drive Nanvix as a backend.
 
 ## What Nanvix is
 
@@ -451,7 +451,8 @@ This mode is the interesting one for an agent fleet, because the hypervisor beco
 
 | | bubblewrap | microsandbox | Docker Sandboxes | MXC | Nanvix |
 |---|---|---|---|---|---|
-| Role | the engine | the engine | the managed service | the wrapper over engines | the engine plus a new OS |
+| Approach | namespaces on the host kernel | microVM, Linux guest | microVM, Linux guest | the policy layer over engines | microVM, own guest OS |
+| Role | the engine | the engine | the managed service | the wrapper over engines | the engine, with its own OS |
 | Boundary | namespaces on the host kernel | own guest kernel | own guest kernel | whatever the host offers | own guest kernel, own OS |
 | Guest userland | the host's | Linux | Linux | depends on the backend | **Nanvix, not Linux** |
 | Start cost | milliseconds | tens to hundreds of ms | seconds | ms on bubblewrap, more on a VM backend | 0.2 s cold boot here |
@@ -461,7 +462,7 @@ This mode is the interesting one for an agent fleet, because the hypervisor beco
 | Snapshots | no | yes | no | no | Windows and WHP only |
 | Best at | the cheapest boundary | running untrusted code end to end | unattended agent fleets | one policy across hosts and engines | a guest OS you control, at serverless density |
 
-The interesting row is the second one. Every other project in this series runs your code on Linux, which means your code has to be Linux code. Nanvix runs it on something else entirely, and the cost is that porting is on you.
+The interesting row is the second one. Nanvix, microsandbox, and Docker Sandboxes all give the workload its own guest kernel, so they are one approach, not three. What separates Nanvix is the row under it: every other project in this series runs your code on Linux, which means your code has to be Linux code. Nanvix runs it on something else entirely, and the cost is that porting is on you.
 
 The interesting row is also the fourth. Nanvix's network default is "the syscall is not implemented", which is stronger than any firewall you can configure on top of a Linux guest, because there is no layer to configure.
 

@@ -1,6 +1,6 @@
 # AI Sandbox Demo Lab: Docker Sandboxes
 
-A hands-on style guide to Docker Sandboxes, Docker's microVM sandbox for AI coding agents. It follows the same shape as [the bubblewrap lab](bubblewrap.md), [the microsandbox lab](microsandbox.md), and [the nanvix lab](nanvix.md), so you can compare the four side by side.
+A hands-on style guide to Docker Sandboxes, Docker's microVM sandbox for AI coding agents. It is the **microVM approach**, the same family as [the microsandbox lab](microsandbox.md) and [the nanvix lab](nanvix.md), delivered as a managed service instead of a runtime you drive yourself. [The bubblewrap lab](bubblewrap.md) covers the cheaper namespace approach, and [the MXC lab](mxc.md) covers the policy layer over the engines.
 
 > **Status of this page.** The policy, approval, and audit sections were verified live against `sbx` 0.48.0 on Ubuntu 26.04 with KVM, using the `shell` agent and real sandboxes. The workflow, templates, MCP, and editor sections are built from Docker's own documentation and are illustrative rather than transcripts.
 
@@ -23,6 +23,8 @@ It runs on macOS (Sonoma 14+, Apple silicon), Windows 11 with Windows Hypervisor
 
 | | bubblewrap | microsandbox | nanvix | Docker Sandboxes |
 |---|---|---|---|---|
+| Approach | namespaces on the host kernel | microVM, Linux guest | microVM, own guest OS | microVM, Linux guest |
+| Role | the engine | the engine | the engine | the managed service |
 | Isolation | namespaces + seccomp, shared host kernel | microVM, own guest kernel | microVM, own guest kernel | microVM, own guest kernel |
 | Guest userland | the host's Linux | Linux | Nanvix, not Linux | Linux |
 | Interface | `bwrap` flags you assemble | SDK-first, `msb` CLI | the `nanvixd` binary | `sbx` CLI, agent-first |
@@ -33,7 +35,7 @@ It runs on macOS (Sonoma 14+, Apple silicon), Windows 11 with Windows Hypervisor
 | Best at | slim, scriptable separation | embedding sandbox creation in code | a guest OS you control | running coding agents unattended |
 | Cost | free, DIY | free, DIY plus cloud option | free, but the workload needs porting | CLI free, governance paid |
 
-Roughly: reach for bubblewrap when you want to trim what one process can see, microsandbox when you want to boot machines from your own code, nanvix when the workload needs a guest operating system that is not Linux, and Docker Sandboxes when you want to hand a coding agent a machine and walk away.
+Roughly: reach for bubblewrap when you want to trim what one process can see, microsandbox when you want to boot machines from your own code, nanvix when the workload needs a guest operating system that is not Linux, and Docker Sandboxes when you want to hand a coding agent a machine and walk away. The first two approaches are the fork; the choice inside the microVM family is about the guest and the ergonomics.
 
 ## The Vagrant parallel
 

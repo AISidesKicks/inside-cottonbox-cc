@@ -1,8 +1,8 @@
 # AI Sandbox Demo Lab: MXC
 
-A hands-on lab for Microsoft eXtension Container (MXC), the layer that sits *above* the sandbox engines. The other labs in this series each teach you one engine: bubblewrap, microsandbox, nanvix, Docker Sandboxes. MXC is the wrapper framework: one policy model, and it drives whichever engine the host happens to offer.
+A hands-on lab for Microsoft eXtension Container (MXC), the layer that sits *above* the sandbox engines. The other labs in this series each teach you one engine: [bubblewrap](bubblewrap.md) for the namespace approach, and [microsandbox](microsandbox.md), [nanvix](nanvix.md), and [Docker Sandboxes](dockersandboxes.md) for the microVM approach. MXC is the wrapper framework: one policy model, and it drives whichever engine the host happens to offer.
 
-Everything in the "Verified output" blocks was produced on this machine, on Linux, with the Rust SDK `mxc-sdk` 1.0.1, bubblewrap 0.11.1, and the `ctnb` pixi environment from this repo. The other four approaches have their own labs: [bubblewrap](bubblewrap.md), [microsandbox](microsandbox.md), [nanvix](nanvix.md), and [Docker Sandboxes](dockersandboxes.md).
+Everything in the "Verified output" blocks was produced on this machine, on Linux, with the Rust SDK `mxc-sdk` 1.0.1, bubblewrap 0.11.1, and the `ctnb` pixi environment from this repo.
 
 ## What MXC is
 
@@ -385,7 +385,8 @@ $ sh: 2: Cannot set tty process group (No such process)
 
 | | bubblewrap | microsandbox | nanvix | Docker Sandboxes | MXC |
 |---|---|---|---|---|---|
-| Role | the engine | the engine | the engine plus a new OS | the managed service | the wrapper over engines |
+| Approach | namespaces on the host kernel | microVM, Linux guest | microVM, own guest OS | microVM, Linux guest | the policy layer over engines |
+| Role | the engine | the engine | the engine | the managed service | the wrapper over engines |
 | Boundary | namespaces on the host kernel | own guest kernel | own guest kernel, own OS | own guest kernel | whatever the host offers |
 | Isolation control | command-line flags | OCI image plus policy | mount plus path sandbox | workspace modes plus presets | one policy object, typed |
 | Start cost | milliseconds | tens to hundreds of milliseconds | 0.2 s cold boot | seconds | milliseconds on bubblewrap, more on a VM backend |
@@ -396,7 +397,7 @@ $ sh: 2: Cannot set tty process group (No such process)
 
 The practical reading: MXC is what you reach for when you do not want to write the bubblewrap command line yourself, when you want the same policy to work on a Linux CI box and a Windows workstation, or when you want to escalate from a namespace sandbox to a microVM without rewriting your policy.
 
-It also sits at a different altitude from the other four. bubblewrap, microsandbox, nanvix, and Docker Sandboxes are engines, or a service built on an engine. MXC is a library that calls an engine.
+It also sits at a different altitude from the other four. bubblewrap, microsandbox, nanvix, and Docker Sandboxes are engines, or a service built on an engine: the first is the namespace approach, the other three are the microVM approach. MXC is a library that calls an engine, and it does not care which kind.
 
 ## Threat model worksheet
 

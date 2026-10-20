@@ -2,7 +2,7 @@
 
 A hands-on lab for running AI coding agents inside bubblewrap. We start from the smallest possible sandbox and build up to a wrapper you can actually use: isolated home, read-only system tree, dropped capabilities, a seccomp deny-list, an audit log, and a probe script that proves the confinement works.
 
-The examples are generic - swap in whichever agent CLI you use. The same ground is covered for the other three approaches in [the microsandbox lab](microsandbox.md), [the nanvix lab](nanvix.md), and [the Docker Sandboxes lab](dockersandboxes.md), including how each one blocks the network connections an agent should not make.
+The examples are generic - swap in whichever agent CLI you use. bubblewrap is the **namespace approach**: a boundary made of kernel namespaces around a process, on the host kernel. The **microVM approach** gives the workload its own guest kernel instead, and is covered in [the microsandbox lab](microsandbox.md), [the nanvix lab](nanvix.md), and [the Docker Sandboxes lab](dockersandboxes.md). [The MXC lab](mxc.md) covers the policy layer that can drive any of them. Every lab covers how the approach blocks the network connections an agent should not make.
 
 ## Why bubblewrap for AI
 
