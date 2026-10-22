@@ -4,6 +4,9 @@
 !.pixi/config.toml
 # cargo build output
 src/mxc-demo/target/
+# python bytecode
+__pycache__/
+*.pyc
 # scratch space for temporary artifacts
 scratch/*
 !scratch/.gitkeep
