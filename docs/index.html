@@ -4,6 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Why AI coding agents need unbreakable isolated sandboxes - sandboxing technologies, separation vs red teaming, and layerable sandbox tools for agentic infra.">
+<link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/images/favicon.ico" sizes="any">
+<link rel="icon" href="assets/images/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/images/favicon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="assets/images/favicon-180.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="inside.cottonbox.cc">
+<meta property="og:url" content="https://inside.cottonbox.cc">
+<meta property="og:title" content="Peeking inside the cottonbox: three ways to sandbox an AI agent on Linux">
+<meta property="og:description" content="AI agents will happily delete your files, so they belong in a box. Four hands-on labs on sandboxing an AI agent on Linux: bubblewrap namespaces, microVMs with their own kernel, a microVM that is not even Linux, and a policy layer over all of them.">
+<meta property="og:image" content="https://inside.cottonbox.cc/assets/images/3types.jpeg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peeking inside the cottonbox: three ways to sandbox an AI agent on Linux">
+<meta name="twitter:description" content="AI agents will happily delete your files, so they belong in a box. Four hands-on labs on sandboxing an AI agent on Linux, every command verified on a real machine.">
+<meta name="twitter:image" content="https://inside.cottonbox.cc/assets/images/3types.jpeg">
 <title>Tame evil in sandbox - they like to play too!</title>
 <style>
 body {
@@ -98,6 +113,40 @@ footer {
   color: #888;
   font-size: 13px;
   text-align: center;
+}
+.share {
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  margin: 20px 0;
+  padding: 4px 20px 14px;
+}
+.share-label {
+  color: #999;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 20px 0 0;
+  text-transform: uppercase;
+}
+.share-copy {
+  background: #f7f8fa;
+  border-left: 3px solid #2563eb;
+  border-radius: 4px;
+  margin: 8px 0 0;
+  padding: 10px 14px;
+}
+.share-titles {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.share-titles li {
+  margin: 4px 0;
+}
+.share-titles li span {
+  color: #999;
+  font-size: 13px;
 }
 </style>
 </head>
@@ -209,6 +258,30 @@ footer {
 <li><a href="https://github.com/restyler/awesome-sandbox">Awesome Code Sandboxing for AI</a> - a curated guide to code sandboxing solutions.</li>
 <li><a href="https://arxiv.org/html/2606.08433v1">AI Code Sandboxes: A Comparative Security Study</a> - an engine-level security comparison of five sandbox products (part 1 of 2).</li>
 </ul>
+
+<h2>Share it</h2>
+
+<p>If this one is going on LinkedIn or anywhere else, here is a blurb and a few titles that already work.</p>
+
+<div class="share">
+  <p class="share-label">One liner</p>
+  <p class="share-copy">AI agents will happily delete your files, so they belong in a box. Three ways to sandbox one on Linux, all hands-on.</p>
+
+  <p class="share-label">Overview</p>
+  <p class="share-copy">AI agents delete your files if you let them, so they belong in a box. I went hands-on with three ways to build one on Linux: bubblewrap namespaces, a microVM with its own kernel, and a managed agent sandbox. Then a fourth that is not even Linux, and a policy layer that drives all of them. Every command verified on a real machine.</p>
+
+  <p class="share-label">Titles</p>
+  <ul class="share-titles">
+    <li>Peeking inside the cottonbox: three ways to sandbox an AI agent on Linux <span>primary</span></li>
+    <li>Three ways to box an AI agent on Linux</li>
+    <li>Sandbox curious: three Linux sandboxes, hands on</li>
+    <li>Your agent will delete your files. Box it.</li>
+    <li>Tame the agent, not the host: sandboxing on Linux <span>kitsch</span></li>
+  </ul>
+
+  <p class="share-label">Hashtags</p>
+  <p class="share-copy">#sandboxing #aiagents #linux #infosec #devtools</p>
+</div>
 
 <footer><a href="https://inside.cottonbox.cc">inside.cottonbox.cc</a> - <a href="https://github.com/AISidesKicks/inside-cottonbox-cc">source on GitHub</a></footer>
 </body>
